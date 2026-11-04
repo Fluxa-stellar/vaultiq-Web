@@ -1,28 +1,61 @@
-import { Bell, Wallet } from "lucide-react";
+"use client";
+
+import Image from "next/image";
+import { Bell } from "lucide-react";
+import { WalletButton } from "@/components/wallet/WalletButton";
+import { useWallet } from "@/hooks/useWallet";
 
 export function Header() {
+  const { user, formattedAddress, isAuthenticated } = useWallet();
+
+  const displayName = user?.name || (isAuthenticated && formattedAddress ? formattedAddress : null);
+  const avatarUrl =
+    user?.avatarUrl ||
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      displayName || "Guest"
+    )}&background=3538cd&color=fff`;
+
   return (
     <header className="flex h-20 shrink-0 items-center gap-x-6 border-b border-[#1e2335] bg-[#0a0c16] px-8 shadow-sm">
       <div className="flex flex-1 flex-col gap-1">
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          Welcome back, Alex <span role="img" aria-label="wave">👋</span>
+          {displayName ? (
+            <>
+              Welcome back, {displayName} <span role="img" aria-label="wave">👋</span>
+            </>
+          ) : (
+            <>
+              Welcome to AI Treasury <span role="img" aria-label="wave">👋</span>
+            </>
+          )}
         </h1>
-        <p className="text-sm text-gray-400">Here's what's happening with your treasury today.</p>
+        <p className="text-sm text-gray-400">
+          {isAuthenticated
+            ? "Here's what's happening with your treasury today."
+            : "Connect your Web3 wallet to manage treasuries and execute AI transactions."}
+        </p>
       </div>
-      <div className="flex items-center gap-x-6">
-        <button className="flex items-center gap-2 rounded-lg bg-[#3538cd] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#3538cd]/90 transition-colors">
-          <Wallet size={16} />
-          Connect Wallet
-        </button>
-        <button type="button" className="-m-2.5 p-2.5 text-gray-400 hover:text-gray-300">
+
+      <div className="flex items-center gap-x-4">
+        <WalletButton />
+
+        <button
+          type="button"
+          className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-[#1a2035] transition-colors"
+          title="Notifications"
+        >
           <span className="sr-only">View notifications</span>
-          <Bell className="h-6 w-6" aria-hidden="true" />
+          <Bell className="h-5 w-5" aria-hidden="true" />
         </button>
-        <div className="flex items-center gap-x-4">
-          <img
-            className="h-9 w-9 rounded-full bg-gray-800"
-            src="https://ui-avatars.com/api/?name=Alex&background=random"
-            alt="Profile"
+
+        <div className="flex items-center">
+          <Image
+            className="h-9 w-9 rounded-full bg-gray-800 ring-2 ring-[#1e2335] object-cover"
+            src={avatarUrl}
+            alt="Profile avatar"
+            width={36}
+            height={36}
+            unoptimized
           />
         </div>
       </div>

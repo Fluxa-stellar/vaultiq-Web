@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -9,8 +11,8 @@ import {
   CheckSquare,
   BarChart2,
   Settings,
-  MessageSquare
 } from "lucide-react";
+import { useWallet } from "@/hooks/useWallet";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -25,6 +27,7 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { isAuthenticated, formattedAddress, chainName, balance } = useWallet();
 
   return (
     <div className="flex h-full w-64 flex-col bg-[#111423] text-gray-400 border-r border-[#1e2335]">
@@ -67,29 +70,41 @@ export function Sidebar() {
             AI Agent is active <span className="h-2 w-2 rounded-full bg-green-500"></span>
           </div>
           <p className="text-xs text-gray-400 mb-3">Monitoring your treasury 24/7</p>
-          <button className="w-full rounded-lg bg-[#3538cd] py-2 text-sm font-medium text-white hover:bg-[#3538cd]/90 transition-colors">
+          <Link
+            href="/agent"
+            className="block w-full rounded-lg bg-[#3538cd] py-2 text-sm font-medium text-white hover:bg-[#3538cd]/90 transition-colors"
+          >
             Ask AI Agent
-          </button>
+          </Link>
         </div>
 
-        <div className="rounded-xl bg-[#1e2335] p-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-500">
-               <Wallet size={14} />
+        {isAuthenticated && formattedAddress ? (
+          <>
+            <div className="rounded-xl bg-[#1e2335] p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="h-6 w-6 rounded-full bg-yellow-500/20 flex items-center justify-center text-yellow-500">
+                  <Wallet size={14} />
+                </div>
+                <span className="text-xs text-gray-200 truncate max-w-[120px]">{chainName}</span>
+              </div>
+              <span className="text-xs text-green-500">Connected</span>
             </div>
-            <span className="text-sm text-gray-200">BNB Smart Chain</span>
-          </div>
-          <span className="text-xs text-green-500">Connected</span>
-        </div>
 
-        <div className="rounded-xl bg-[#1e2335] p-3 flex items-center gap-3">
-          <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-green-400 to-blue-500 flex items-center justify-center">
+            <div className="rounded-xl bg-[#1e2335] p-3 flex items-center gap-3">
+              <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-green-400 to-blue-500 flex items-center justify-center shrink-0">
+                <span className="text-xs font-bold text-white font-mono">0x</span>
+              </div>
+              <div className="truncate">
+                <div className="text-sm text-gray-200 font-medium font-mono">{formattedAddress}</div>
+                <div className="text-xs text-gray-400">{balance ? `${balance} Native` : "Active"}</div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="rounded-xl bg-[#1e2335]/60 p-3 text-center border border-[#262c42]">
+            <p className="text-xs text-gray-400">Wallet not connected</p>
           </div>
-          <div>
-            <div className="text-sm text-gray-200 font-medium">0x8F3a...c2dE</div>
-            <div className="text-xs text-gray-400">Balance: 1.248 BNB</div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
