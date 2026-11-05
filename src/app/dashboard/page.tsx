@@ -471,7 +471,7 @@ export default function Dashboard() {
                   </span>
                 </div>
                 <div className="text-sm text-gray-300 bg-[#1e2335] p-3 rounded-lg rounded-tl-none">
-                  Hi {formattedAddress || "there"}! I&apos;m your AI Treasury copilot.
+                  Hi {formattedAddress || "there"}! I&apos;m your VAULTIQ copilot.
                 </div>
               </div>
 

@@ -105,7 +105,7 @@ export function CreateTreasuryModal({ isOpen, onClose, onSubmit }: CreateTreasur
               className="w-full rounded-xl bg-[#141828] border border-[#232a42] px-3.5 py-2.5 text-sm text-white font-mono placeholder-gray-500 focus:outline-none focus:border-[#3538cd] transition-colors"
             />
             <p className="text-[11px] text-gray-500 mt-1">
-              Leave blank to use the official AI Treasury Vault contract on BNB Chain Testnet.
+              Leave blank to use the official VAULTIQ Vault contract on BNB Chain Testnet.
             </p>
           </div>
 

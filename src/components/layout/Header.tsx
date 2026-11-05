@@ -25,7 +25,7 @@ export function Header() {
             </>
           ) : (
             <>
-              Welcome to AI Treasury <span role="img" aria-label="wave">👋</span>
+              Welcome to VAULTIQ <span role="img" aria-label="wave">👋</span>
             </>
           )}
         </h1>

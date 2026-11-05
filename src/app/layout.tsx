@@ -15,8 +15,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Treasury Agent",
-  description: "Your intelligent on-chain treasury",
+  title: "VAULTIQ - Intelligent On-Chain Treasury",
+  description: "Intelligent on-chain treasury management and AI-driven automation on BNB Chain",
+  icons: {
+    icon: "/vaultIQ.jpg",
+    apple: "/vaultIQ.jpg",
+  },
 };
 
 export default function RootLayout({

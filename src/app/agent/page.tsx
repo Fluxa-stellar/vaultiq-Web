@@ -32,7 +32,7 @@ export default function AgentPage() {
           </div>
           <div>
             <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-              AI Treasury Agent
+              VAULTIQ AI Agent
               <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400 bg-emerald-400/10 px-2.5 py-0.5 rounded-full">
                 <ShieldCheck size={12} /> Autonomous Guardrails Active
               </span>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { Bot, Loader2, Send, Sparkles, User } from "lucide-react";
 import type { AgentChatMessage } from "@/types/agent";
 import { AgentInsightCard } from "./AgentInsight";
@@ -59,14 +60,20 @@ export function AgentChat({
       <div className="flex items-center justify-between px-6 py-4 border-b border-[#1e2335] bg-[#121626]">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <div className="h-9 w-9 rounded-xl bg-[#3538cd]/20 text-[#6366f1] flex items-center justify-center border border-[#3538cd]/30">
-              <Bot size={20} />
+            <div className="h-9 w-9 rounded-xl overflow-hidden border border-[#3538cd]/40 bg-[#161a2c]">
+              <Image
+                src="/vaultIQ.jpg"
+                alt="VAULTIQ"
+                width={36}
+                height={36}
+                className="object-cover w-full h-full"
+              />
             </div>
             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-[#0f121e]" />
           </div>
           <div>
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              AI Treasury Agent
+              VAULTIQ AI Agent
               <span className="text-[10px] uppercase font-semibold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-full">
                 Online
               </span>

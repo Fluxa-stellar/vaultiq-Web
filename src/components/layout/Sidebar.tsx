@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -32,13 +33,27 @@ export function Sidebar() {
   return (
     <div className="flex h-full w-64 flex-col bg-[#111423] text-gray-400 border-r border-[#1e2335]">
       <div className="p-6">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-yellow-500/10 flex items-center justify-center text-yellow-500">
-            <Bot size={20} />
+        <Link href="/" className="flex items-center gap-3 group">
+          <div className="relative h-9 w-9 rounded-xl overflow-hidden ring-1 ring-[#2b334d] shrink-0 bg-[#161a2c]">
+            <Image
+              src="/vaultIQ.jpg"
+              alt="VAULTIQ Logo"
+              width={36}
+              height={36}
+              className="object-cover w-full h-full group-hover:scale-105 transition-transform"
+              priority
+            />
           </div>
-          <div className="font-semibold text-white">AI Treasury Agent</div>
+          <div>
+            <div className="font-bold tracking-tight text-white text-base leading-tight">
+              VAULTIQ
+            </div>
+            <div className="text-[10px] uppercase font-semibold text-indigo-400 tracking-wider">
+              On-Chain AI
+            </div>
+          </div>
         </Link>
-        <p className="text-xs text-gray-500 mt-1">Your intelligent on-chain treasury</p>
+        <p className="text-xs text-gray-400 mt-2">Intelligent on-chain treasury</p>
       </div>
 
       <nav className="flex-1 space-y-1 px-4 py-4 overflow-y-auto">
