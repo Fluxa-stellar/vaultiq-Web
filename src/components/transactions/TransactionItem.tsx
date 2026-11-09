@@ -9,6 +9,7 @@ import {
   Send,
 } from "lucide-react";
 import type { Transaction } from "@/types/transaction";
+import { AEVUM_EXPLORER } from "@/config/constants";
 
 interface TransactionItemProps {
   transaction: Transaction;
@@ -101,16 +102,16 @@ export function TransactionItem({ transaction }: TransactionItemProps) {
           {parseFloat(transaction.amount || "0").toLocaleString(undefined, {
             maximumFractionDigits: 4,
           })}{" "}
-          {transaction.tokenSymbol || "BNB"}
+          {transaction.tokenSymbol || "tUSD8"}
         </div>
 
         <div className="flex items-center gap-2 text-[11px] text-gray-400">
           {transaction.txHash ? (
             <a
-              href={`https://testnet.bscscan.com/tx/${transaction.txHash}`}
+              href={`${AEVUM_EXPLORER}/tx/${transaction.txHash}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 text-[#3538cd] hover:underline font-mono"
+              className="flex items-center gap-1 text-indigo-400 hover:underline font-mono"
             >
               <span>{formatAddr(transaction.txHash)}</span>
               <ExternalLink size={11} />

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, Search, SlidersHorizontal } from "lucide-react";
+import { Loader2, Plus, Search, SlidersHorizontal, Sparkles } from "lucide-react";
 import type { Rule } from "@/types/rule";
 import { RuleCard } from "./RuleCard";
 
@@ -11,6 +11,8 @@ interface RuleListProps {
   onToggle: (id: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onCreateClick: () => void;
+  onInitDefaults?: () => Promise<void>;
+  isResetting?: boolean;
 }
 
 export function RuleList({
@@ -19,6 +21,8 @@ export function RuleList({
   onToggle,
   onDelete,
   onCreateClick,
+  onInitDefaults,
+  isResetting,
 }: RuleListProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
@@ -99,19 +103,35 @@ export function RuleList({
           <h4 className="text-sm font-semibold text-white mb-1">
             {searchTerm ? "No Matching Rules Found" : "No Guardrail Rules Configured"}
           </h4>
-          <p className="text-xs text-gray-400 max-w-sm mb-4">
+          <p className="text-xs text-gray-400 max-w-sm mb-5 leading-relaxed">
             {searchTerm
               ? "Try adjusting your search keywords."
               : "Define automated spending limits, low liquidity alerts, and multi-sig guardrails to secure your smart vault."}
           </p>
           {!searchTerm && (
-            <button
-              onClick={onCreateClick}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-[#3538cd] hover:bg-[#3538cd]/90 transition-all shadow-md shadow-[#3538cd]/20"
-            >
-              <Plus size={14} />
-              <span>Create First Rule</span>
-            </button>
+            <div className="flex items-center gap-3 flex-wrap justify-center">
+              <button
+                onClick={onCreateClick}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-[#3538cd] hover:bg-[#3538cd]/90 transition-all shadow-md shadow-[#3538cd]/20"
+              >
+                <Plus size={14} />
+                <span>Create Custom Rule</span>
+              </button>
+              {onInitDefaults && (
+                <button
+                  onClick={onInitDefaults}
+                  disabled={isResetting}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all disabled:opacity-50"
+                >
+                  {isResetting ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={14} />
+                  )}
+                  <span>Load Testnet Presets (0.25 tUSD8)</span>
+                </button>
+              )}
+            </div>
           )}
         </div>
       ) : (
@@ -129,4 +149,3 @@ export function RuleList({
     </div>
   );
 }
-

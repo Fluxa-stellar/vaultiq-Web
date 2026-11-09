@@ -24,5 +24,8 @@ export interface TreasuryAnalyticsData {
   typeCounts: Record<string, number>;
   monthlySpending: Record<string, number>;
   assetAllocation: AnalyticsAssetItem[];
+  walletAddress?: string;
+  nativeBalance?: string;
+  vaultBalance?: string;
 }
 

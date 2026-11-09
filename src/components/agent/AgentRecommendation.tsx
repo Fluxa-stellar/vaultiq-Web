@@ -56,7 +56,7 @@ export function AgentRecommendationCard({
             <div className="flex justify-between text-gray-300">
               <span className="text-gray-500">Amount:</span>
               <span className="text-white font-medium">
-                {recommendation.amount} {recommendation.tokenSymbol || "BNB"}
+                {recommendation.amount} {recommendation.tokenSymbol || "tUSD8"}
               </span>
             </div>
           )}

@@ -13,6 +13,7 @@ import {
   XCircle,
 } from "lucide-react";
 import type { Approval } from "@/types/transaction";
+import { AEVUM_EXPLORER } from "@/config/constants";
 
 interface ApprovalCardProps {
   approval: Approval;
@@ -99,7 +100,7 @@ export function ApprovalCard({
       {/* Main Amount & Recipient */}
       <div>
         <div className="text-2xl font-mono font-bold text-white mb-1">
-          {approval.amount} {approval.tokenSymbol || "BNB"}
+          {approval.amount} {approval.tokenSymbol || "tUSD8"}
         </div>
 
         {approval.recipientAddress && (
@@ -130,10 +131,10 @@ export function ApprovalCard({
         <div className="text-xs flex items-center justify-between p-2 rounded-lg bg-[#0e111a] border border-[#1b2133]">
           <span className="text-gray-500">Transaction Hash:</span>
           <a
-            href={`https://testnet.bscscan.com/tx/${approval.txHash}`}
+            href={`${AEVUM_EXPLORER}/tx/${approval.txHash}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 font-mono text-[#3538cd] hover:underline"
+            className="flex items-center gap-1 font-mono text-indigo-400 hover:underline"
           >
             <span>{formatAddr(approval.txHash)}</span>
             <ExternalLink size={12} />

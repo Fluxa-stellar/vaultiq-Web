@@ -36,21 +36,34 @@ export interface Treasury {
   _count?: TreasuryCount;
 }
 
+export interface VaultSpendingStatus {
+  maxTransactionAmount: string;
+  dailySpendingLimit: string;
+  spentToday: string;
+  remainingToday: string;
+}
+
 export interface TreasuryOverview {
   treasuryId: string;
   name: string;
   contractAddress: string;
   chainId: number;
+  network?: string;
   walletAddress: string;
-  nativeBnbBalance: string;
-  vaultBnbBalance: string;
-  vaultSpendingStatus: string | null;
-  totalAssetsCount: number;
-  assets: TreasuryAsset[];
-  recentTxCount: number;
-  pendingApprovalsCount: number;
-  activeRulesCount: number;
-  recentInsights: unknown[];
+  nativeBalance?: string;
+  nativeSymbol?: string;
+  vaultBalance?: string;
+  vaultTokenSymbol?: string;
+  vaultSpendingStatus?: VaultSpendingStatus | string | null;
+  totalAssetsCount?: number;
+  assets?: TreasuryAsset[];
+  recentTxCount?: number;
+  pendingApprovalsCount?: number;
+  activeRulesCount?: number;
+  recentInsights?: unknown[];
+  // Backwards-compatible legacy aliases:
+  nativeBnbBalance?: string;
+  vaultBnbBalance?: string;
 }
 
 export interface CreateTreasuryDto {

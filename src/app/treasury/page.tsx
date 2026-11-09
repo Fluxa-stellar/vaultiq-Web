@@ -50,7 +50,7 @@ export default function TreasuryPage() {
             Treasury Management
           </h2>
           <p className="text-sm text-gray-400">
-            Smart multi-asset vaults on BNB Chain with autonomous AI agent guardrails.
+            Smart multi-asset vaults on Aevum Testnet with autonomous AI agent guardrails in tUSD8.
           </p>
         </div>
 
@@ -99,7 +99,7 @@ export default function TreasuryPage() {
           </div>
           <h3 className="text-lg font-bold text-white mb-2">Connect Your Web3 Wallet</h3>
           <p className="text-xs text-gray-400 max-w-md mb-6">
-            Authenticate your EVM wallet to view, deploy, and manage your AI-driven smart treasuries on BNB Chain.
+            Authenticate your EVM wallet to view, deploy, and manage your AI-driven smart treasuries on Aevum Testnet.
           </p>
           <button
             onClick={login}
@@ -132,7 +132,7 @@ export default function TreasuryPage() {
           </div>
           <h3 className="text-lg font-bold text-white mb-2">No Treasury Vaults Yet</h3>
           <p className="text-xs text-gray-400 max-w-md mb-6">
-            Create your first intelligent treasury vault on BNB Chain Testnet. Your AI Agent will automatically track balances and manage reserves.
+            Create your first intelligent treasury vault on Aevum Testnet. Your AI Agent will automatically track balances and manage reserves in tUSD8 and tQDAY.
           </p>
           <button
             onClick={() => setCreateModalOpen(true)}
@@ -180,7 +180,7 @@ export default function TreasuryPage() {
                 </div>
                 <div className="flex items-center gap-2 text-xs text-gray-400">
                   <Shield size={14} className="text-emerald-400" />
-                  <span>BNB Chain Vault: {selectedTreasury.contractAddress.slice(0, 8)}...</span>
+                  <span>Aevum Vault: {selectedTreasury.contractAddress.slice(0, 8)}...</span>
                 </div>
               </div>
 

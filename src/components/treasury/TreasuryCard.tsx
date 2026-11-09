@@ -3,6 +3,7 @@
 import React from "react";
 import { ArrowRight, CheckCircle2, ExternalLink, Wallet } from "lucide-react";
 import type { Treasury } from "@/types/treasury";
+import { AEVUM_EXPLORER } from "@/config/constants";
 
 interface TreasuryCardProps {
   treasury: Treasury;
@@ -19,11 +20,10 @@ export function TreasuryCard({ treasury, isSelected, onSelect }: TreasuryCardPro
   return (
     <div
       onClick={onSelect}
-      className={`rounded-2xl p-5 border transition-all cursor-pointer flex flex-col justify-between gap-4 ${
-        isSelected
-          ? "bg-[#161a29] border-[#3538cd] ring-1 ring-[#3538cd]/50 shadow-lg shadow-[#3538cd]/10"
-          : "bg-[#111423] border-[#1e2335] hover:border-[#29324e] hover:bg-[#141828]"
-      }`}
+      className={`rounded-2xl p-5 border transition-all cursor-pointer flex flex-col justify-between gap-4 ${isSelected
+        ? "bg-[#161a29] border-[#3538cd] ring-1 ring-[#3538cd]/50 shadow-lg shadow-[#3538cd]/10"
+        : "bg-[#111423] border-[#1e2335] hover:border-[#29324e] hover:bg-[#141828]"
+        }`}
     >
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
@@ -32,7 +32,7 @@ export function TreasuryCard({ treasury, isSelected, onSelect }: TreasuryCardPro
           </div>
           <div>
             <h4 className="text-base font-semibold text-white">{treasury.name}</h4>
-            <span className="text-xs text-gray-400">BNB Chain (ID: {treasury.chainId})</span>
+            <span className="text-xs text-gray-400">Aevum Testnet (ID: {treasury.chainId})</span>
           </div>
         </div>
 
@@ -51,11 +51,11 @@ export function TreasuryCard({ treasury, isSelected, onSelect }: TreasuryCardPro
         <div className="flex items-center justify-between text-xs">
           <span className="text-gray-400">Vault Contract</span>
           <a
-            href={`https://testnet.bscscan.com/address/${contractAddress}`}
+            href={`${AEVUM_EXPLORER}/address/${contractAddress}`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="flex items-center gap-1 font-mono text-gray-300 hover:text-white"
+            className="flex items-center gap-1 font-mono text-indigo-400 hover:text-indigo-300"
           >
             <span>{formattedContract}</span>
             <ExternalLink size={12} />
@@ -75,11 +75,10 @@ export function TreasuryCard({ treasury, isSelected, onSelect }: TreasuryCardPro
           Created {new Date(treasury.createdAt).toLocaleDateString()}
         </span>
         <button
-          className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
-            isSelected
-              ? "bg-[#3538cd] text-white"
-              : "text-gray-300 hover:text-white bg-[#1a2035]"
-          }`}
+          className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${isSelected
+            ? "bg-[#3538cd] text-white"
+            : "text-gray-300 hover:text-white bg-[#1a2035]"
+            }`}
         >
           <span>{isSelected ? "Active Vault" : "Select Vault"}</span>
           <ArrowRight size={12} />

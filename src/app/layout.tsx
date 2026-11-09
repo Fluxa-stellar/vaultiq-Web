@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "VAULTIQ - Intelligent On-Chain Treasury",
-  description: "Intelligent on-chain treasury management and AI-driven automation on BNB Chain",
+  title: "VAULTIQ - Intelligent On-Chain Treasury | Aevum Network",
+  description: "Intelligent on-chain treasury management and autonomous AI-driven spending guardrails on Aevum Testnet",
   icons: {
     icon: "/vaultIQ.jpg",
     apple: "/vaultIQ.jpg",

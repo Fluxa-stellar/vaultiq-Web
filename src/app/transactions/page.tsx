@@ -19,18 +19,20 @@ import { useTransactions } from "@/hooks/useTransactions";
 import { TransactionList } from "@/components/transactions/TransactionList";
 import { ProposeTransactionModal } from "@/components/transactions/ProposeTransactionModal";
 import { DepositModal } from "@/components/treasury/DepositModal";
+import { AEVUM_EXPLORER } from "@/config/constants";
 
 export default function TransactionsPage() {
   const { isAuthenticated, login, isConnecting } = useWallet();
   const { treasuries, selectedTreasury, selectTreasury, assets, syncBalances, refreshOverview } = useTreasury();
   const {
     transactions,
+    onChainTransactions,
     pendingApprovals,
     isLoading,
     proposeTransaction,
     reload,
     error,
-  } = useTransactions(selectedTreasury?.id);
+  } = useTransactions(selectedTreasury?.id, selectedTreasury?.contractAddress);
 
   const [proposeModalOpen, setProposeModalOpen] = useState(false);
   const [depositModalOpen, setDepositModalOpen] = useState(false);
@@ -139,10 +141,10 @@ export default function TransactionsPage() {
             <div className="rounded-xl bg-[#131620] p-5 border border-[#1e2335]">
               <div className="text-xs text-gray-400 mb-2">Total Confirmed Transactions</div>
               <div className="text-3xl font-bold text-white mb-1">
-                {transactions.length}
+                {onChainTransactions.length > 0 ? onChainTransactions.length : transactions.length}
               </div>
               <p className="text-xs text-emerald-400 flex items-center gap-1">
-                <CheckCircle2 size={12} /> On-Chain Recorded
+                <CheckCircle2 size={12} /> Live On-Chain Verified (Aevum L2)
               </p>
             </div>
 
@@ -174,19 +176,23 @@ export default function TransactionsPage() {
                 {selectedTreasury?.contractAddress}
               </div>
               <a
-                href={`https://testnet.bscscan.com/address/${selectedTreasury?.contractAddress}`}
+                href={`${AEVUM_EXPLORER}/address/${selectedTreasury?.contractAddress}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-xs text-[#3538cd] hover:underline"
               >
-                <span>View on BscScan</span>
+                <span>View on QDay Explorer</span>
                 <ExternalLink size={12} />
               </a>
             </div>
           </div>
 
           {/* Transactions List */}
-          <TransactionList transactions={transactions} isLoading={isLoading} />
+          <TransactionList
+            transactions={transactions}
+            onChainTransactions={onChainTransactions}
+            isLoading={isLoading}
+          />
         </div>
       )}
 

@@ -20,7 +20,7 @@ export function ProposeTransactionModal({
 }: ProposeTransactionModalProps) {
   const [toAddress, setToAddress] = useState("");
   const [amount, setAmount] = useState("");
-  const [tokenSymbol, setTokenSymbol] = useState("BNB");
+  const [tokenSymbol, setTokenSymbol] = useState("tUSD8");
   const [type, setType] = useState<TransactionType>("TRANSFER");
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -142,9 +142,10 @@ export function ProposeTransactionModal({
                 onChange={(e) => setTokenSymbol(e.target.value)}
                 className="w-full rounded-xl bg-[#141828] border border-[#232a42] px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#3538cd] cursor-pointer"
               >
-                <option value="BNB">BNB (Native)</option>
+                <option value="tUSD8">tUSD8 (Stablecoin - 6 dec)</option>
+                <option value="tQDAY">tQDAY (Native Gas - 18 dec)</option>
                 {assets
-                  .filter((a) => a.symbol !== "BNB")
+                  .filter((a) => a.symbol !== "tUSD8" && a.symbol !== "tQDAY")
                   .map((a) => (
                     <option key={a.id} value={a.symbol}>
                       {a.symbol} ({a.name})

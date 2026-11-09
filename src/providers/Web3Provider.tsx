@@ -9,7 +9,15 @@ import React, {
 } from "react";
 import { parseEther } from "viem";
 import { authApi, clearAuthToken, getAuthToken, setAuthToken, walletApi } from "@/lib/api";
-import { DEFAULT_CHAIN_ID, STORAGE_KEYS, SUPPORTED_CHAINS } from "@/config/constants";
+import {
+  AEVUM_CHAIN_ID,
+  AEVUM_RPC,
+  DEFAULT_CHAIN_ID,
+  STORAGE_KEYS,
+  SUPPORTED_CHAINS,
+  TOKENS,
+  TUSD8_TOKEN_ADDRESS,
+} from "@/config/constants";
 import type { UserProfile, WalletRecord } from "@/types/auth";
 
 interface EthereumRpcError {
@@ -37,16 +45,21 @@ interface Web3AuthContextType {
   user: UserProfile | null;
   wallets: WalletRecord[];
   balance: string | null;
+  stableBalance: string | null;
+  currencySymbol: string;
   isLoading: boolean;
   isConnecting: boolean;
   isAuthenticated: boolean;
+  isAevumNetwork: boolean;
   error: string | null;
   login: () => Promise<void>;
   logout: () => void;
   connectOnly: () => Promise<string | null>;
   switchChain: (targetChainId: number) => Promise<void>;
-  sendTransaction: (to: string, valueInEth: string) => Promise<string>;
+  switchToAevum: () => Promise<void>;
+  sendTransaction: (to: string, valueInEth?: string, data?: string) => Promise<string>;
   refreshProfile: () => Promise<void>;
+  refreshBalances: () => Promise<void>;
 }
 
 const Web3AuthContext = createContext<Web3AuthContextType | undefined>(undefined);
@@ -57,14 +70,21 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [wallets, setWallets] = useState<WalletRecord[]>([]);
   const [balance, setBalance] = useState<string | null>(null);
+  const [stableBalance, setStableBalance] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const getChainName = (id: number | null) => {
-    if (!id) return "Unknown Network";
+    if (!id) return "Aevum Testnet";
     const found = SUPPORTED_CHAINS.find((c) => c.id === id);
     return found ? found.name : `Chain ID ${id}`;
+  };
+
+  const getCurrencySymbol = (id: number | null) => {
+    if (!id) return "tQDAY";
+    const found = SUPPORTED_CHAINS.find((c) => c.id === id);
+    return found ? found.currency : "tQDAY";
   };
 
   const getProvider = (): EthereumProvider | null => {
@@ -76,6 +96,7 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
     clearAuthToken();
     setUser(null);
     setBalance(null);
+    setStableBalance(null);
     setError(null);
   }, []);
 
@@ -149,55 +170,147 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
 
     void initAuth();
 
+    const handleSessionExpired = () => {
+      clearAuthToken();
+      setUser(null);
+    };
+
+    window.addEventListener("vaultiq:session-expired", handleSessionExpired);
+
     return () => {
       isCancelled = true;
+      window.removeEventListener("vaultiq:session-expired", handleSessionExpired);
     };
   }, []);
 
-  // Update balance when address or network changes
-  useEffect(() => {
-    let active = true;
-
+  const refreshBalances = useCallback(async () => {
     if (!address) {
+      setBalance(null);
+      setStableBalance(null);
       return;
     }
 
-    const loadBalance = async () => {
-      try {
-        const res = await walletApi.getBalance(address);
-        if (active && res.data?.balance) {
-          setBalance(res.data.balance);
-          return;
-        }
-      } catch {
-        // Fallback to direct RPC call
-      }
+    const provider = getProvider();
 
-      try {
-        const provider = getProvider();
-        if (provider) {
+    // 1. Fetch native currency (tQDAY on Aevum Testnet)
+    try {
+      let nativeBal: string | null = null;
+      if (provider) {
+        try {
           const hexBalance = (await provider.request({
             method: "eth_getBalance",
             params: [address, "latest"],
           })) as string;
-          if (active && hexBalance) {
+          if (hexBalance) {
             const intBal = parseInt(hexBalance, 16) / 1e18;
-            setBalance(intBal.toFixed(4));
+            nativeBal = intBal.toFixed(4);
           }
-        }
-      } catch {
-        if (active) {
-          setBalance(null);
+        } catch {
+          // Direct provider call failed, try backend or RPC fallback
         }
       }
-    };
 
-    void loadBalance();
+      if (!nativeBal) {
+        try {
+          const res = await walletApi.getBalance(address);
+          if (res.data?.balance) {
+            nativeBal = res.data.balance;
+          }
+        } catch {
+          // Fallback to direct Aevum RPC
+        }
+      }
 
-    return () => {
-      active = false;
-    };
+      if (!nativeBal && (chainId === AEVUM_CHAIN_ID || !chainId)) {
+        try {
+          const rpcRes = await fetch(AEVUM_RPC, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              method: "eth_getBalance",
+              params: [address, "latest"],
+            }),
+          });
+          const rpcJson = await rpcRes.json();
+          if (rpcJson.result) {
+            const intBal = parseInt(rpcJson.result, 16) / 1e18;
+            nativeBal = intBal.toFixed(4);
+          }
+        } catch {
+          // RPC fallback failed
+        }
+      }
+
+      setBalance(nativeBal ?? "0.0000");
+    } catch {
+      setBalance("0.0000");
+    }
+
+    // 2. Fetch primary treasury settlement token (tUSD8, 6 decimals)
+    try {
+      const padded = address.toLowerCase().replace("0x", "").padStart(64, "0");
+      const tokenData = `0x70a08231${padded}`;
+      let hexToken: string | null = null;
+
+      if (provider) {
+        try {
+          hexToken = (await provider.request({
+            method: "eth_call",
+            params: [
+              {
+                to: TUSD8_TOKEN_ADDRESS,
+                data: tokenData,
+              },
+              "latest",
+            ],
+          })) as string;
+        } catch {
+          // Direct provider call failed, try RPC
+        }
+      }
+
+      if (!hexToken || hexToken === "0x") {
+        try {
+          const rpcRes = await fetch(AEVUM_RPC, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              method: "eth_call",
+              params: [{ to: TUSD8_TOKEN_ADDRESS, data: tokenData }, "latest"],
+            }),
+          });
+          const rpcJson = await rpcRes.json();
+          hexToken = rpcJson.result;
+        } catch {
+          // RPC failed
+        }
+      }
+
+      if (hexToken && hexToken !== "0x") {
+        const units = BigInt(hexToken);
+        const tokenAmount = Number(units) / 1e6;
+        setStableBalance(
+          tokenAmount.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })
+        );
+      } else {
+        setStableBalance("0.00");
+      }
+    } catch {
+      setStableBalance("0.00");
+    }
   }, [address, chainId]);
+
+  // Update balance when address or network changes
+  useEffect(() => {
+    void refreshBalances();
+  }, [refreshBalances]);
 
   // Subscribe to provider account & chain events
   useEffect(() => {
@@ -233,7 +346,7 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
     };
   }, [address, logout]);
 
-  const switchChain = async (targetChainId: number) => {
+  const switchChain = useCallback(async (targetChainId: number) => {
     const provider = getProvider();
     if (!provider) throw new Error("No Web3 wallet detected");
 
@@ -246,7 +359,8 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
       setChainId(targetChainId);
     } catch (switchErr: unknown) {
       const rpcError = switchErr as EthereumRpcError;
-      if (rpcError?.code === 4902) {
+      const errorStr = String(switchErr || "");
+      if (rpcError?.code === 4902 || errorStr.includes("Unrecognized") || errorStr.includes("4902")) {
         const chainMeta = SUPPORTED_CHAINS.find((c) => c.id === targetChainId);
         if (chainMeta) {
           await provider.request({
@@ -260,7 +374,7 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
                 nativeCurrency: {
                   name: chainMeta.currency,
                   symbol: chainMeta.currency,
-                  decimals: 18,
+                  decimals: ("decimals" in chainMeta ? chainMeta.decimals : 18),
                 },
               },
             ],
@@ -271,25 +385,33 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
         throw switchErr;
       }
     }
-  };
+  }, []);
 
-  const sendTransaction = async (to: string, valueInEth: string): Promise<string> => {
+  const switchToAevum = useCallback(async () => {
+    await switchChain(AEVUM_CHAIN_ID);
+  }, [switchChain]);
+
+  const sendTransaction = async (to: string, valueInEth: string = "0", data?: string): Promise<string> => {
     const provider = getProvider();
     if (!provider) throw new Error("No Web3 wallet detected");
     if (!address) throw new Error("Wallet not connected");
 
-    const wei = parseEther(valueInEth);
+    const wei = parseEther(valueInEth || "0");
     const hexValue = `0x${wei.toString(16)}`;
+
+    const txParams: Record<string, unknown> = {
+      from: address,
+      to,
+      value: hexValue,
+    };
+
+    if (data) {
+      txParams.data = data;
+    }
 
     const txHash = (await provider.request({
       method: "eth_sendTransaction",
-      params: [
-        {
-          from: address,
-          to,
-          value: hexValue,
-        },
-      ],
+      params: [txParams],
     })) as string;
 
     return txHash;
@@ -384,8 +506,9 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
         console.warn("Wallet record sync:", e);
       }
 
-      // Step 6: Refresh full user profile
+      // Step 6: Refresh full user profile and on-chain balances
       await refreshProfile();
+      await refreshBalances();
     } catch (err: unknown) {
       console.error("Login failed:", err);
       const msg = err instanceof Error ? err.message : "Authentication failed. Please try again.";
@@ -396,6 +519,8 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const isAevumNetwork = chainId === AEVUM_CHAIN_ID;
+
   const value: Web3AuthContextType = {
     address,
     chainId,
@@ -403,16 +528,21 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
     user,
     wallets,
     balance,
+    stableBalance,
+    currencySymbol: getCurrencySymbol(chainId),
     isLoading,
     isConnecting,
     isAuthenticated: !!user && !!getAuthToken(),
+    isAevumNetwork,
     error,
     login,
     logout,
     connectOnly,
     switchChain,
+    switchToAevum,
     sendTransaction,
     refreshProfile,
+    refreshBalances,
   };
 
   return (

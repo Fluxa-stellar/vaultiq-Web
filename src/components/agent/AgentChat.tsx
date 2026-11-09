@@ -6,6 +6,7 @@ import { Bot, Loader2, Send, Sparkles, User } from "lucide-react";
 import type { AgentChatMessage } from "@/types/agent";
 import { AgentInsightCard } from "./AgentInsight";
 import { AgentRecommendationCard } from "./AgentRecommendation";
+import { MarkdownMessage } from "@/components/ui/MarkdownMessage";
 
 interface AgentChatProps {
   messages: AgentChatMessage[];
@@ -15,10 +16,10 @@ interface AgentChatProps {
 }
 
 const QUICK_PROMPTS = [
+  "How much did agents spend in the last 24 hours?",
+  "Which agent is closest to its spending limit?",
+  "Detect any abnormal transaction spikes.",
   "Analyze this treasury and evaluate financial health.",
-  "Where are most of my funds allocated?",
-  "Check active spending rules and security guardrails.",
-  "Transfer 0.05 BNB to my reserve wallet.",
 ];
 
 export function AgentChat({
@@ -146,7 +147,11 @@ export function AgentChat({
                         : "bg-[#141829] text-gray-200 border border-[#20273d] rounded-tl-none"
                     }`}
                   >
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    {isUser ? (
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                    ) : (
+                      <MarkdownMessage content={msg.content} />
+                    )}
                   </div>
 
                   {/* Inline Insights if generated */}
@@ -223,7 +228,7 @@ export function AgentChat({
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask questions or type a command (e.g. 'Transfer 0.1 BNB to 0x...')"
+            placeholder="Ask questions or type a command (e.g. 'Disburse 2.50 tUSD8 to 0x...')"
             rows={1}
             disabled={isSending}
             className="w-full resize-none rounded-xl bg-[#181d30] border border-[#262f4c] py-3 pl-4 pr-24 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#3538cd] transition-colors"

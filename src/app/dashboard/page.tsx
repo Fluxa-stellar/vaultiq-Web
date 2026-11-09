@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -8,6 +8,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   ShieldCheck,
+  ShieldAlert,
   ArrowRight,
   PlayCircle,
   Send,
@@ -16,6 +17,11 @@ import {
   RefreshCw,
   Plus,
   Loader2,
+  Gauge,
+  Zap,
+  Sparkles,
+  Bot,
+  ExternalLink,
 } from "lucide-react";
 import {
   LineChart,
@@ -30,26 +36,27 @@ import {
 import { useWallet } from "@/hooks/useWallet";
 import { useTreasury } from "@/hooks/useTreasury";
 import { useAgent } from "@/hooks/useAgent";
+import { useAgentAllowances } from "@/hooks/useAgentAllowances";
+import { useTransactions } from "@/hooks/useTransactions";
+import { FuelGauge } from "@/components/allowances/FuelGauge";
+import { InteractiveAgentSandbox } from "@/components/dashboard/InteractiveAgentSandbox";
+import { formatTimeAgo, formatAddress } from "@/lib/formatters";
+import { AEVUM_EXPLORER } from "@/config/constants";
 
 const performanceData = [
-  { name: "May 08", value: 12000 },
-  { name: "May 09", value: 14000 },
-  { name: "May 10", value: 13500 },
-  { name: "May 11", value: 15230.45 },
-  { name: "May 12", value: 14800 },
-  { name: "May 13", value: 16000 },
-  { name: "May 14", value: 17432.82 },
-];
-
-const DEFAULT_ALLOCATION = [
-  { name: "BNB", value: 1860, color: "#d29922" },
-  { name: "USDT", value: 10500, color: "#2ea043" },
-  { name: "USDC", value: 3980, color: "#3538cd" },
+  { name: "Nov 01", value: 110000 },
+  { name: "Nov 02", value: 114000 },
+  { name: "Nov 03", value: 118500 },
+  { name: "Nov 04", value: 121200 },
+  { name: "Nov 05", value: 122800 },
+  { name: "Nov 06", value: 123900 },
+  { name: "Nov 07", value: 124500 },
 ];
 
 export default function Dashboard() {
   const router = useRouter();
-  const { isAuthenticated, formattedAddress } = useWallet();
+  const { isAuthenticated, address, formattedAddress, isAevumNetwork, switchToAevum, balance, stableBalance } = useWallet();
+  const { agents, auditStream } = useAgentAllowances();
   const {
     treasuries,
     selectedTreasury,
@@ -59,6 +66,11 @@ export default function Dashboard() {
     syncBalances,
   } = useTreasury();
 
+  const { transactions, onChainTransactions } = useTransactions(
+    selectedTreasury?.id,
+    selectedTreasury?.contractAddress
+  );
+
   const {
     insights,
     recommendations,
@@ -67,6 +79,11 @@ export default function Dashboard() {
   } = useAgent(selectedTreasury?.id);
 
   const [agentInput, setAgentInput] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleAgentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,39 +99,222 @@ export default function Dashboard() {
     await sendMessage(text);
   };
 
-  // Calculate live total value or default to display
-  const liveTotalValue = assets.reduce((acc, curr) => {
-    const val = parseFloat(curr.valueUsd || "0");
-    return acc + (isNaN(val) ? 0 : val);
-  }, 0);
+  // Real on-chain treasury value calculation:
+  // If backend treasury overview is present and non-zero, use it.
+  // Otherwise, use the user's connected wallet balance (tUSD8 * $1.00 + tQDAY * $1.25).
+  const numStable = stableBalance ? parseFloat(stableBalance.replace(/,/g, "")) : 0;
+  const numNative = balance ? parseFloat(balance.replace(/,/g, "")) : 0;
+  const walletTreasuryValue = numStable * 1.0 + numNative * 1.25;
 
-  const displayValue =
-    isAuthenticated && selectedTreasury
-      ? `$${liveTotalValue.toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}`
-      : "$17,432.82";
+  const overviewAssetSum = overview?.assets?.reduce(
+    (sum, a) => sum + parseFloat(a.valueUsd || "0"),
+    0
+  );
 
-  const chartAllocation =
-    isAuthenticated && assets.length > 0
-      ? assets.map((a, i) => {
-          const colors = ["#d29922", "#2ea043", "#3538cd", "#8b5cf6", "#ec4899"];
-          const num = parseFloat(a.balance || "0");
-          return {
-            name: a.symbol || a.name,
-            value: num > 0 ? num : 1,
-            color: colors[i % colors.length],
-            displayVal: `${num.toFixed(4)} ${a.symbol}`,
-          };
-        })
-      : DEFAULT_ALLOCATION;
+  const displayValue = !isAuthenticated && !address
+    ? "$0.00"
+    : overviewAssetSum && overviewAssetSum > 0
+    ? `$${overviewAssetSum.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`
+    : `$${walletTreasuryValue.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+
+  // Dynamic 24H Agent Outflow
+  const totalAgentOutflow = agents.reduce((sum, a) => sum + (a.spentToday || 0), 0);
+  const totalDailyCap = agents.reduce((sum, a) => sum + (a.dailyLimit || 0), 0);
+  const outflowPercentage = totalDailyCap > 0 ? (totalAgentOutflow / totalDailyCap) * 100 : 0;
+  const isOutflowHigh = outflowPercentage > 90;
+  const isOutflowMedium = outflowPercentage > 70;
+
+  const aevumAssets = assets.filter((a) => {
+    const sym = (a.symbol || a.name || "").toUpperCase();
+    return sym.includes("USD8") || sym.includes("QDAY") || sym.includes("AEVUM");
+  });
+
+  const trackedAssetsList =
+    aevumAssets.length > 0
+      ? aevumAssets
+      : [
+          {
+            symbol: "tUSD8",
+            name: "tUSD8 Stablecoin (6 dec)",
+            balance: stableBalance || "0.00",
+            priceUsd: "1.00",
+          },
+          {
+            symbol: "tQDAY",
+            name: "Aevum Native Gas Token",
+            balance: balance || "0.0000",
+            priceUsd: "1.25",
+          },
+        ];
+
+  const chartAllocation = (() => {
+    if (aevumAssets.length > 0) {
+      return aevumAssets.map((a, i) => {
+        const colors = ["#10b981", "#6366f1", "#8b5cf6", "#3b82f6"];
+        const num = parseFloat(a.balance || "0");
+        const isUsd8 = (a.symbol || a.name || "").toUpperCase().includes("USD8");
+        const isQday = (a.symbol || a.name || "").toUpperCase().includes("QDAY");
+        return {
+          name: a.symbol || a.name,
+          value: num > 0 ? num : 0.0001,
+          color: isUsd8 ? "#10b981" : isQday ? "#6366f1" : colors[i % colors.length],
+          displayVal: `${num.toFixed(4)} ${a.symbol}`,
+        };
+      });
+    }
+
+    const valUsd8 = numStable;
+    const valQday = numNative * 1.25;
+
+    if (valUsd8 === 0 && valQday === 0) {
+      return [
+        { name: "tUSD8", value: 1, color: "#10b981", displayVal: "0.00 tUSD8" },
+        { name: "tQDAY", value: 0, color: "#6366f1", displayVal: "0.0000 tQDAY" },
+      ];
+    }
+
+    return [
+      {
+        name: "tUSD8",
+        value: valUsd8 > 0 ? valUsd8 : 0.0001,
+        color: "#10b981",
+        displayVal: `${valUsd8.toFixed(2)} tUSD8`,
+      },
+      {
+        name: "tQDAY",
+        value: valQday > 0 ? valQday : 0.0001,
+        color: "#6366f1",
+        displayVal: `${numNative.toFixed(4)} tQDAY`,
+      },
+    ];
+  })();
+
+  // Real unified recent activity
+  const unifiedActivities = (() => {
+    const list: {
+      id: string;
+      type: string;
+      amount: string;
+      from: string;
+      time: string;
+      timestamp: number;
+      isPositive: boolean;
+      isAgent: boolean;
+      isBlocked?: boolean;
+      txHash?: string;
+    }[] = [];
+
+    // 1. From real live on-chain transactions (Aevum Testnet: deposits, agent disbursements, incoming external funding)
+    (onChainTransactions || []).forEach((tx) => {
+      const isDeposit = tx.type === "VAULT_DEPOSIT";
+      const isIncoming = tx.type === "EXTERNAL_FUNDING";
+      const isAgent = tx.type === "AI_SPEND";
+      list.push({
+        id: tx.id,
+        type: isDeposit
+          ? "Vault Deposit"
+          : isIncoming
+          ? "External Funding"
+          : isAgent
+          ? "Autonomous Spend"
+          : "Vault Withdrawal",
+        amount: `${tx.isPositive ? "+" : "-"}${tx.amount.toFixed(2)} ${tx.currency}`,
+        from: tx.purpose || `${tx.agentName} → ${tx.recipientName || "Recipient"}`,
+        time: formatTimeAgo(tx.timestamp),
+        timestamp: new Date(tx.timestamp).getTime(),
+        isPositive: tx.isPositive,
+        isAgent,
+        isBlocked: tx.status === "REVERTED_BLOCKED",
+        txHash: tx.txHash,
+      });
+    });
+
+    // 2. From agent audit stream (recent session dispatches, omitting stale 0x091c mock if on-chain txs exist)
+    auditStream.forEach((item) => {
+      const isMockHash = item.txHash?.startsWith("0x091c");
+      if (onChainTransactions && onChainTransactions.length > 0 && isMockHash) {
+        return;
+      }
+      const isBlocked = item.status === "REVERTED_BLOCKED";
+      list.push({
+        id: item.id,
+        type: isBlocked ? "Blocked Policy Attempt" : item.isAutonomous ? "Autonomous Spend" : "Manual Spend",
+        amount: `${isBlocked ? "Blocked: " : "-"}${item.amount.toFixed(2)} ${item.currency}`,
+        from: `${item.agentName}${item.purpose ? ` (${item.purpose})` : ""}`,
+        time: formatTimeAgo(item.timestamp),
+        timestamp: new Date(item.timestamp).getTime(),
+        isPositive: false,
+        isAgent: true,
+        isBlocked,
+        txHash: item.txHash,
+      });
+    });
+
+    // 3. From real database transactions ledger (e.g. deposits & transfers)
+    (transactions || []).forEach((tx) => {
+      const isDeposit = tx.type === "DEPOSIT";
+      const num = parseFloat(tx.amount || "0");
+      list.push({
+        id: tx.id,
+        type: tx.type === "DEPOSIT" ? "Vault Deposit" : tx.type === "TRANSFER" ? "Treasury Transfer" : tx.type === "WITHDRAW" ? "Withdrawal" : "Execution",
+        amount: `${isDeposit ? "+" : "-"}${num.toLocaleString(undefined, { maximumFractionDigits: 4 })} ${tx.tokenSymbol || "tQDAY"}`,
+        from: tx.reason || `${formatAddress(tx.fromAddress)} → ${formatAddress(tx.toAddress)}`,
+        time: formatTimeAgo(tx.createdAt),
+        timestamp: new Date(tx.createdAt).getTime(),
+        isPositive: isDeposit,
+        isAgent: tx.type === "CONTRACT_EXECUTION",
+        isBlocked: tx.status === "FAILED" || tx.status === "REJECTED",
+        txHash: tx.txHash || undefined,
+      });
+    });
+
+    // Deduplicate by txHash or id, sort by newest first, take 5
+    return list
+      .filter((v, i, a) => a.findIndex((t) => t.id === v.id || (t.txHash && t.txHash === v.txHash)) === i)
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 5);
+  })();
 
   const topInsight = insights[0];
   const topRecommendation = recommendations[0];
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Aevum Switch Prompt Banner */}
+      {isAuthenticated && !isAevumNetwork && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-gradient-to-r from-indigo-900/40 to-purple-900/30 border border-indigo-500/40 text-white shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-indigo-600 text-white shadow-md">
+              <Zap size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-bold flex items-center gap-2">
+                Aevum Builder Challenge Network Switch
+                <span className="text-[10px] bg-indigo-500/30 px-2 py-0.5 rounded font-mono text-indigo-200">
+                  Chain ID 44005 (0xaba5)
+                </span>
+              </p>
+              <p className="text-xs text-gray-300">
+                Switch to Aevum Testnet to sync live with AevumAgentVault smart contract, disburse tUSD8, and inspect fuel gauges.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={switchToAevum}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-all shadow-md shadow-indigo-600/30 shrink-0 cursor-pointer"
+          >
+            <Sparkles size={14} className="text-yellow-300" />
+            <span>Switch to Aevum Testnet</span>
+          </button>
+        </div>
+      )}
+
       {/* Alert / Prompt banner if no treasury or unauthenticated */}
       {!isAuthenticated ? (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-[#3538cd]/10 border border-[#3538cd]/30 text-white">
@@ -125,7 +325,7 @@ export default function Dashboard() {
             <div>
               <p className="text-sm font-semibold">Web3 Wallet Disconnected</p>
               <p className="text-xs text-gray-300">
-                Connect your EVM wallet to load your smart vaults, execute transfers, and receive AI recommendations.
+                Connect your EVM wallet to load your smart vaults, execute transfers, and manage autonomous AI allowances.
               </p>
             </div>
           </div>
@@ -140,7 +340,7 @@ export default function Dashboard() {
             <div>
               <p className="text-sm font-semibold">No Active Treasury Found</p>
               <p className="text-xs text-gray-300">
-                You haven&apos;t created or linked a smart treasury vault yet on BNB Chain.
+                You haven&apos;t created or linked a smart treasury vault yet on Aevum Testnet.
               </p>
             </div>
           </div>
@@ -179,12 +379,16 @@ export default function Dashboard() {
           {/* Top 3 Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="rounded-xl bg-[#131620] p-5 border border-[#1e2335]">
-              <div className="flex items-center gap-1 text-sm text-gray-400 mb-2">
-                Total Treasury Value <Info size={14} />
+              <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+                <span className="flex items-center gap-1">Total Treasury Value <Info size={14} /></span>
+                <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  tUSD8 (6 dec)
+                </span>
               </div>
               <div className="text-3xl font-bold text-white mb-2">{displayValue}</div>
-              <div className="text-xs font-medium text-green-500 flex items-center">
-                +5.42% <span className="text-gray-500 ml-1">vs last 7 days</span>
+              <div className="text-xs font-medium text-emerald-400 flex items-center justify-between">
+                <span>+5.42% <span className="text-gray-500 ml-1">vs 7d</span></span>
+                <span className="font-mono text-gray-400 text-[11px]">{balance ? `${balance} tQDAY gas` : "0.0000 tQDAY gas"}</span>
               </div>
               <div className="h-10 mt-2">
                 <ResponsiveContainer width="100%" height="100%">
@@ -192,7 +396,7 @@ export default function Dashboard() {
                     <Line
                       type="monotone"
                       dataKey="value"
-                      stroke="#2ea043"
+                      stroke="#10b981"
                       strokeWidth={2}
                       dot={false}
                     />
@@ -202,16 +406,23 @@ export default function Dashboard() {
             </div>
 
             <div className="rounded-xl bg-[#131620] p-5 border border-[#1e2335]">
-              <div className="flex items-center gap-1 text-sm text-gray-400 mb-2">
-                24H Net Change <Info size={14} />
+              <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+                <span className="flex items-center gap-1">24H Agent Outflow <Info size={14} /></span>
+                <span className="text-[10px] font-semibold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">
+                  Autonomous
+                </span>
               </div>
-              <div className="text-3xl font-bold text-white mb-2">+$842.35</div>
-              <div className="text-xs font-medium text-green-500 mb-2">+3.49%</div>
+              <div className="text-3xl font-bold text-white mb-2">-${totalAgentOutflow.toFixed(2)}</div>
+              <div className={`text-xs font-medium mb-2 ${
+                isOutflowHigh ? "text-rose-400" : isOutflowMedium ? "text-amber-400" : "text-emerald-400"
+              }`}>
+                {outflowPercentage.toFixed(1)}% of Daily Cap • {isOutflowHigh ? "Action Required" : isOutflowMedium ? "High Spend" : "Healthy"}
+              </div>
               <div className="flex items-end gap-1 h-10 mt-2">
                 {[4, 7, 3, 8, 5, 10, 6].map((h, i) => (
                   <div
                     key={i}
-                    className="flex-1 bg-green-500/80 rounded-sm"
+                    className="flex-1 bg-indigo-500/80 rounded-sm"
                     style={{ height: `${h * 10}%` }}
                   />
                 ))}
@@ -219,23 +430,37 @@ export default function Dashboard() {
             </div>
 
             <div className="rounded-xl bg-[#131620] p-5 border border-[#1e2335] relative overflow-hidden">
-              <div className="flex items-center gap-1 text-sm text-gray-400 mb-2">
-                Active Rules <Info size={14} />
+              <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+                <span className="flex items-center gap-1">Security Boundary <Info size={14} /></span>
+                <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                  AevumAgentVault
+                </span>
               </div>
-              <div className="text-3xl font-bold text-white mb-2">
-                {overview?.activeRulesCount ?? 6}
+              <div className="text-2xl font-bold text-white mb-1">
+                {agents.length} AI Agents
               </div>
-              <div className="text-xs font-medium text-green-500">Autonomous Guardrails Active</div>
-              <div className="absolute right-4 bottom-4 text-[#3538cd]/20">
+              <div className="text-xs font-medium text-emerald-400">Strict Allowances &amp; Caps Enforced</div>
+              <div className="absolute right-4 bottom-4 text-indigo-500/15">
                 <ShieldCheck size={64} />
               </div>
             </div>
           </div>
 
+          {/* Interactive Agent Sandbox Widget (For Hackathon Demo Video) */}
+          <InteractiveAgentSandbox />
+
           {/* Row 2: Allocation & Recent Activity */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="rounded-xl bg-[#131620] p-5 border border-[#1e2335]">
-              <div className="text-base font-medium text-white mb-4">Treasury Allocation</div>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-base font-medium text-white">Treasury Allocation</div>
+                  <div className="text-[11px] text-gray-400">Aevum Testnet Network</div>
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full">
+                  Aevum Testnet (0xaba5)
+                </span>
+              </div>
               <div className="flex items-center">
                 <div className="h-32 w-32 relative shrink-0">
                   <ResponsiveContainer width="100%" height="100%">
@@ -262,10 +487,13 @@ export default function Dashboard() {
                           className="w-2 h-2 rounded-full"
                           style={{ backgroundColor: asset.color }}
                         />
-                        <span className="text-gray-300">{asset.name}</span>
+                        <div className="flex flex-col">
+                          <span className="text-gray-300 font-semibold text-xs">{asset.name}</span>
+                          <span className="text-[10px] text-indigo-400 font-mono">Aevum Testnet</span>
+                        </div>
                       </div>
                       <div className="flex items-center gap-4">
-                        <span className="text-white font-medium">
+                        <span className="text-white font-medium text-xs font-mono">
                           {asset.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                         </span>
                       </div>
@@ -292,69 +520,116 @@ export default function Dashboard() {
                 </Link>
               </div>
               <div className="space-y-4">
-                {[
-                  {
-                    type: "Received",
-                    amount: "+1,200 USDT",
-                    from: "0x3bA...d91F",
-                    time: "2m ago",
-                    isPositive: true,
-                  },
-                  {
-                    type: "Sent",
-                    amount: "-500 USDT",
-                    from: "To 0x7f2...a8E1",
-                    time: "15m ago",
-                    isPositive: false,
-                  },
-                  {
-                    type: "Received",
-                    amount: "+0.75 BNB",
-                    from: "From 0x91c...9a8B",
-                    time: "1h ago",
-                    isPositive: true,
-                  },
-                  {
-                    type: "Sent",
-                    amount: "-2,000 USDT",
-                    from: "To 0x1d3...b22F",
-                    time: "3h ago",
-                    isPositive: false,
-                  },
-                ].map((act, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`flex items-center justify-center h-8 w-8 rounded-full ${
-                          act.isPositive
-                            ? "bg-green-500/10 text-green-500"
-                            : "bg-red-500/10 text-red-500"
-                        }`}
-                      >
-                        {act.isPositive ? (
-                          <ArrowDownRight size={16} />
-                        ) : (
-                          <ArrowUpRight size={16} />
-                        )}
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-white">{act.type}</div>
-                        <div className="text-xs text-gray-400">{act.from}</div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div
-                        className={`text-sm font-medium ${
-                          act.isPositive ? "text-green-500" : "text-red-500"
-                        }`}
-                      >
-                        {act.amount}
-                      </div>
-                      <div className="text-xs text-gray-400">{act.time}</div>
-                    </div>
+                {unifiedActivities.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-6 text-center rounded-xl bg-[#0e111d] border border-[#1d2337] gap-2">
+                    <Bot size={24} className="text-gray-500" />
+                    <p className="text-xs font-semibold text-gray-300">No activity recorded yet</p>
+                    <p className="text-[11px] text-gray-500 max-w-xs">
+                      Run a transaction simulator request on Allowances or deposit funds to populate this audit feed.
+                    </p>
+                    <Link
+                      href="/allowances"
+                      className="mt-2 text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+                    >
+                      <span>Open Simulator</span>
+                      <ArrowRight size={12} />
+                    </Link>
                   </div>
-                ))}
+                ) : (
+                  unifiedActivities.map((act) => (
+                    <div key={act.id} className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`flex items-center justify-center h-8 w-8 rounded-full ${
+                            act.isPositive
+                              ? "bg-green-500/10 text-green-500"
+                              : act.isBlocked
+                              ? "bg-rose-500/10 text-rose-400"
+                              : act.isAgent
+                              ? "bg-indigo-500/10 text-indigo-400"
+                              : "bg-red-500/10 text-red-500"
+                          }`}
+                        >
+                          {act.isPositive ? (
+                            <ArrowDownRight size={16} />
+                          ) : act.isBlocked ? (
+                            <ShieldAlert size={15} />
+                          ) : act.isAgent ? (
+                            <Bot size={15} />
+                          ) : (
+                            <ArrowUpRight size={16} />
+                          )}
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium text-white flex items-center gap-1.5">
+                            <span>{act.type}</span>
+                            {act.txHash && (
+                              <a
+                                href={`${AEVUM_EXPLORER}/tx/${act.txHash}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-gray-500 hover:text-indigo-400 transition-colors"
+                                title="View on Aevum QDay Explorer"
+                              >
+                                <ExternalLink size={12} />
+                              </a>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-400 truncate max-w-[200px] sm:max-w-xs">{act.from}</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div
+                          className={`text-sm font-medium font-mono ${
+                            act.isPositive
+                              ? "text-green-500"
+                              : act.isBlocked
+                              ? "text-rose-400"
+                              : "text-red-400"
+                          }`}
+                        >
+                          {act.amount}
+                        </div>
+                        <div className="text-xs text-gray-400" suppressHydrationWarning>
+                          {act.time}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
+            </div>
+          </div>
+
+          {/* AI Agent Allowances Fuel Gauges Preview */}
+          <div className="rounded-xl bg-[#131620] p-5 border border-[#1e2335]">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Gauge size={18} className="text-indigo-400" />
+                <h3 className="text-base font-semibold text-white">
+                  Active AI Agent Allowances (tUSD8 Fuel Gauges)
+                </h3>
+              </div>
+              <Link
+                href="/allowances"
+                className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors"
+              >
+                <span>Simulator &amp; Allowances</span>
+                <ArrowRight size={14} />
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {agents.map((ag) => (
+                <div key={ag.id} className="p-3.5 rounded-xl bg-[#0e111d] border border-[#1d2337] flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-white truncate max-w-[120px]">{ag.name}</span>
+                    <span className="text-[10px] text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded font-mono">
+                      ${ag.maxSingleTxLimit.toFixed(0)} max/tx
+                    </span>
+                  </div>
+                  <FuelGauge spent={ag.spentToday} total={ag.dailyLimit} currency="tUSD8" />
+                </div>
+              ))}
             </div>
           </div>
 
@@ -412,7 +687,12 @@ export default function Dashboard() {
 
             <div className="rounded-xl bg-[#131620] p-5 border border-[#1e2335]">
               <div className="flex items-center justify-between mb-4">
-                <div className="text-base font-medium text-white">Tracked Assets</div>
+                <div className="flex items-center gap-2">
+                  <div className="text-base font-medium text-white">Tracked Assets</div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full">
+                    Aevum Testnet
+                  </span>
+                </div>
                 <Link
                   href="/treasury"
                   className="text-xs text-[#3538cd] hover:underline"
@@ -421,29 +701,35 @@ export default function Dashboard() {
                 </Link>
               </div>
               <div className="space-y-4">
-                {(assets.length > 0 ? assets : [
-                  { symbol: "BNB", name: "BNB Native Token", balance: "0", priceUsd: "0" },
-                  { symbol: "USDT", name: "Tether USD", balance: "0", priceUsd: "1" },
-                ]).map((asset, i) => (
+                {trackedAssetsList.map((asset, i) => (
                   <div key={i} className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center h-8 w-8 rounded-full bg-yellow-500/20 text-yellow-400 font-bold text-xs">
+                      <div className="flex items-center justify-center h-8 w-8 rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-xs">
                         {asset.symbol[0]}
                       </div>
                       <div>
-                        <div className="text-sm font-medium text-white">{asset.symbol}</div>
+                        <div className="text-sm font-medium text-white flex items-center gap-1.5">
+                          <span>{asset.symbol}</span>
+                          <span className="text-[9px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.2 rounded font-sans">
+                            Aevum L2
+                          </span>
+                        </div>
                         <div className="text-xs text-gray-400">{asset.name}</div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-medium text-white">
+                      <div className="text-sm font-medium text-white font-mono">
                         {parseFloat(asset.balance || "0").toLocaleString(undefined, {
+                          minimumFractionDigits: asset.symbol === "tUSD8" ? 2 : 4,
                           maximumFractionDigits: 4,
                         })}{" "}
                         {asset.symbol}
                       </div>
                       <div className="text-xs text-gray-400">
-                        ${parseFloat(asset.priceUsd || "0").toFixed(2)} USD
+                        ${(parseFloat(asset.balance || "0") * parseFloat(asset.priceUsd || "1")).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })} USD
                       </div>
                     </div>
                   </div>
@@ -483,7 +769,7 @@ export default function Dashboard() {
                 <p className="text-sm text-gray-300 mb-3">
                   {topInsight
                     ? `${topInsight.title}: ${topInsight.description}`
-                    : "Your treasury vault on BNB Chain is active and monitored 24/7. Smart contract guardrails are enabled."}
+                    : "Your treasury vault on Aevum Testnet is active and monitored 24/7. Smart contract guardrails are enabled."}
                 </p>
                 <div className="h-12 w-full">
                   <ResponsiveContainer width="100%" height="100%">

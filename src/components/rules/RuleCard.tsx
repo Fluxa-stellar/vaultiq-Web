@@ -135,7 +135,10 @@ export function RuleCard({ rule, onToggle, onDelete }: RuleCardProps) {
             <span className="text-[10px] uppercase text-gray-500 font-semibold">Condition</span>
             <span className="font-mono text-gray-200 text-[11px]">
               {rule.condition?.threshold ? (
-                <>Threshold: &gt; {rule.condition.threshold} {rule.condition.token || "BNB"}</>
+                <>
+                  Threshold: {rule.type === "LOW_BALANCE" ? "<" : ">"}{" "}
+                  {rule.condition.threshold} {rule.condition.token || "tUSD8"}
+                </>
               ) : (
                 "Trigger on evaluation"
               )}

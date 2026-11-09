@@ -84,7 +84,7 @@ export function TreasuryChart({
                   : "text-gray-400 hover:text-white"
               }`}
             >
-              BNB
+              tQDAY
             </button>
             <button
               onClick={() => setMetric("stables")}
@@ -94,7 +94,7 @@ export function TreasuryChart({
                   : "text-gray-400 hover:text-white"
               }`}
             >
-              Stables
+              tUSD8 Reserves
             </button>
           </div>
 
@@ -153,7 +153,7 @@ export function TreasuryChart({
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 4,
                   })}`,
-                  metric === "total" ? "Total Value" : metric === "bnb" ? "BNB Value" : "Stables Value",
+                  metric === "total" ? "Total Value" : metric === "bnb" ? "tQDAY Value" : "tUSD8 Reserves",
                 ]}
                 labelFormatter={(_label, payload) => {
                   if (payload && payload[0]) {

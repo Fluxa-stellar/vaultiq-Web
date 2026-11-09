@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { approvalApi, transactionApi } from "@/lib/api";
+import { useWallet } from "@/hooks/useWallet";
+import {
+  fetchAevumOnChainTransactions,
+  type UnifiedTransactionItem,
+} from "@/lib/onchainTransactions";
+import { DEFAULT_VAULT_ADDRESS } from "@/config/constants";
 import type {
   Approval,
   ProposeTransactionDto,
@@ -9,45 +15,51 @@ import type {
   Transaction,
 } from "@/types/transaction";
 
-export function useTransactions(treasuryId?: string | null) {
+export function useTransactions(treasuryId?: string | null, customVaultAddress?: string | null) {
+  const { address } = useWallet();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [onChainTransactions, setOnChainTransactions] = useState<UnifiedTransactionItem[]>([]);
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isProposing, setIsProposing] = useState<boolean>(false);
   const [isProcessingAction, setIsProcessingAction] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadData = useCallback(async (id: string) => {
-    setIsLoading(true);
-    setError(null);
+  const loadData = useCallback(
+    async (id?: string | null) => {
+      setIsLoading(true);
+      setError(null);
 
-    try {
-      const [txRes, appRes] = await Promise.all([
-        transactionApi.list(id).catch(() => null),
-        approvalApi.list(id).catch(() => null),
-      ]);
+      const targetVault = customVaultAddress || DEFAULT_VAULT_ADDRESS;
 
-      if (txRes?.data?.items) {
-        setTransactions(txRes.data.items);
+      try {
+        const [txRes, appRes, onChainItems] = await Promise.all([
+          id ? transactionApi.list(id).catch(() => null) : null,
+          id ? approvalApi.list(id).catch(() => null) : null,
+          fetchAevumOnChainTransactions(address, targetVault),
+        ]);
+
+        if (txRes?.data?.items) {
+          setTransactions(txRes.data.items);
+        }
+        if (appRes?.data) {
+          setApprovals(appRes.data);
+        }
+        if (onChainItems && onChainItems.length > 0) {
+          setOnChainTransactions(onChainItems);
+        }
+      } catch (err: unknown) {
+        console.warn("Failed loading transactions and approvals:", err);
+      } finally {
+        setIsLoading(false);
       }
-      if (appRes?.data) {
-        setApprovals(appRes.data);
-      }
-    } catch (err: unknown) {
-      console.warn("Failed loading transactions and approvals:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    },
+    [address, customVaultAddress]
+  );
 
   useEffect(() => {
-    if (treasuryId) {
-      void loadData(treasuryId);
-    } else {
-      setTransactions([]);
-      setApprovals([]);
-    }
-  }, [treasuryId, loadData]);
+    void loadData(treasuryId);
+  }, [treasuryId, address, loadData]);
 
   const proposeTransaction = async (data: Omit<ProposeTransactionDto, "treasuryId">) => {
     if (!treasuryId) throw new Error("No treasury selected");
@@ -188,7 +200,8 @@ export function useTransactions(treasuryId?: string | null) {
     rejectRequest,
     executeRequest,
     recordTransaction,
-    reload: () => (treasuryId ? loadData(treasuryId) : Promise.resolve()),
+    onChainTransactions,
+    reload: () => loadData(treasuryId),
   };
 }
 

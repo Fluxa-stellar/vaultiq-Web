@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { Bell } from "lucide-react";
 import { WalletButton } from "@/components/wallet/WalletButton";
+import { NotificationBellDropdown } from "@/components/notifications/NotificationBellDropdown";
 import { useWallet } from "@/hooks/useWallet";
 
 export function Header() {
@@ -39,14 +39,7 @@ export function Header() {
       <div className="flex items-center gap-x-4">
         <WalletButton />
 
-        <button
-          type="button"
-          className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-[#1a2035] transition-colors"
-          title="Notifications"
-        >
-          <span className="sr-only">View notifications</span>
-          <Bell className="h-5 w-5" aria-hidden="true" />
-        </button>
+        <NotificationBellDropdown />
 
         <div className="flex items-center">
           <Image

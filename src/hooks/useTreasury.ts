@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { treasuryApi } from "@/lib/api";
+import { treasuryApi, ApiError } from "@/lib/api";
 import { useWallet } from "./useWallet";
 import type {
   CreateTreasuryDto,
@@ -62,6 +62,15 @@ export function useTreasury() {
         }
       }
     } catch (err: unknown) {
+      if (err instanceof ApiError && err.statusCode === 401) {
+        // Expired or invalid session - gracefully reset treasury state
+        setTreasuries([]);
+        setSelectedTreasury(null);
+        setOverview(null);
+        setAssets([]);
+        setError(null);
+        return;
+      }
       console.error("Failed fetching treasuries:", err);
       const msg = err instanceof Error ? err.message : "Failed to load treasuries";
       setError(msg);

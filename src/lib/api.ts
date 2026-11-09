@@ -43,6 +43,13 @@ import type {
   TreasuryAnalyticsData,
   TreasurySnapshot,
 } from "@/types/analytics";
+import type {
+  NotificationStatusResponse,
+  TestTelegramResponse,
+  SendCustomAlertDto,
+  SendCustomAlertResponse,
+} from "@/types/notification";
+import type { SystemHealthData } from "@/types/health";
 
 export class ApiError extends Error {
   statusCode: number;
@@ -99,6 +106,12 @@ async function request<T>(
     const data = await res.json().catch(() => null);
 
     if (!res.ok) {
+      if (res.status === 401) {
+        clearAuthToken();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("vaultiq:session-expired"));
+        }
+      }
       const errorMessage =
         data?.message || data?.error || `Request failed with status ${res.status}`;
       throw new ApiError(errorMessage, res.status, data);
@@ -107,6 +120,32 @@ async function request<T>(
     return data as T;
   } catch (error) {
     if (error instanceof ApiError) throw error;
+
+    // If local endpoint was unreachable and custom URL was configured, attempt cloud backend fallback
+    const fallbackBase = "https://ai-treasury-backend.onrender.com";
+    if (
+      !url.startsWith(fallbackBase) &&
+      (error instanceof TypeError || (error instanceof Error && error.message.includes("fetch")))
+    ) {
+      try {
+        const fallbackUrl = `${fallbackBase}/${endpoint.replace(/^\//, "")}`;
+        console.warn(`Primary backend unreachable at ${url}. Attempting failover to ${fallbackUrl}`);
+        const fallbackRes = await fetch(fallbackUrl, {
+          ...options,
+          headers,
+        });
+        const fallbackData = await fallbackRes.json().catch(() => null);
+        if (!fallbackRes.ok) {
+          const errorMessage =
+            fallbackData?.message || fallbackData?.error || `Request failed with status ${fallbackRes.status}`;
+          throw new ApiError(errorMessage, fallbackRes.status, fallbackData);
+        }
+        return fallbackData as T;
+      } catch (fallbackError) {
+        if (fallbackError instanceof ApiError) throw fallbackError;
+      }
+    }
+
     throw new ApiError(
       error instanceof Error ? error.message : "Network error occurred",
       0
@@ -408,6 +447,35 @@ export const analyticsApi = {
   async captureSnapshot(treasuryId: string): Promise<ApiResponse<TreasurySnapshot>> {
     return request<ApiResponse<TreasurySnapshot>>(`/api/analytics/${treasuryId}/snapshot`, {
       method: "POST",
+    });
+  },
+};
+
+export const notificationsApi = {
+  async getStatus(): Promise<NotificationStatusResponse> {
+    return request<NotificationStatusResponse>("/api/notifications/status", {
+      method: "GET",
+    });
+  },
+
+  async sendTestTelegram(): Promise<TestTelegramResponse> {
+    return request<TestTelegramResponse>("/api/notifications/test-telegram", {
+      method: "POST",
+    });
+  },
+
+  async sendCustomAlert(data: SendCustomAlertDto): Promise<SendCustomAlertResponse> {
+    return request<SendCustomAlertResponse>("/api/notifications/custom", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+};
+
+export const healthApi = {
+  async checkHealth(): Promise<ApiResponse<SystemHealthData> | SystemHealthData> {
+    return request<ApiResponse<SystemHealthData>>("/api/health", {
+      method: "GET",
     });
   },
 };

@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Loader2, Plus, Wallet, X } from "lucide-react";
+import { AlertCircle, Loader2, Plus, Wallet, X } from "lucide-react";
 import type { CreateTreasuryDto } from "@/types/treasury";
+import { AEVUM_CHAIN_ID, DEFAULT_VAULT_ADDRESS } from "@/config/constants";
 
 interface CreateTreasuryModalProps {
   isOpen: boolean;
@@ -31,8 +32,8 @@ export function CreateTreasuryModal({ isOpen, onClose, onSubmit }: CreateTreasur
 
       await onSubmit({
         name: name.trim(),
-        contractAddress: contractAddress.trim() || undefined,
-        chainId: 97, // BNB Chain Testnet default
+        contractAddress: contractAddress.trim() || DEFAULT_VAULT_ADDRESS,
+        chainId: AEVUM_CHAIN_ID, // Aevum Testnet (44005)
       });
 
       setName("");
@@ -61,7 +62,7 @@ export function CreateTreasuryModal({ isOpen, onClose, onSubmit }: CreateTreasur
             </div>
             <div>
               <h3 className="text-base font-semibold text-white">Create New Treasury</h3>
-              <p className="text-xs text-gray-400">Deploy or associate a smart vault on BNB Chain</p>
+              <p className="text-xs text-gray-400">Deploy or associate a smart vault on Aevum Testnet</p>
             </div>
           </div>
           <button
@@ -73,8 +74,9 @@ export function CreateTreasuryModal({ isOpen, onClose, onSubmit }: CreateTreasur
         </div>
 
         {formError && (
-          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-400">
-            {formError}
+          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-400 flex items-center gap-2">
+            <AlertCircle size={14} className="shrink-0" />
+            <span>{formError}</span>
           </div>
         )}
 
@@ -88,7 +90,7 @@ export function CreateTreasuryModal({ isOpen, onClose, onSubmit }: CreateTreasur
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Operations Treasury, Payroll Vault"
+              placeholder="e.g. Operations & AI Compute Vault"
               className="w-full rounded-xl bg-[#141828] border border-[#232a42] px-3.5 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#3538cd] transition-colors"
             />
           </div>
@@ -101,17 +103,17 @@ export function CreateTreasuryModal({ isOpen, onClose, onSubmit }: CreateTreasur
               type="text"
               value={contractAddress}
               onChange={(e) => setContractAddress(e.target.value)}
-              placeholder="0xFc6E3Ec48AB20fA72D88cb7c985d85E23971105A (Defaults to standard vault)"
+              placeholder={`${DEFAULT_VAULT_ADDRESS} (Defaults to official Aevum vault)`}
               className="w-full rounded-xl bg-[#141828] border border-[#232a42] px-3.5 py-2.5 text-sm text-white font-mono placeholder-gray-500 focus:outline-none focus:border-[#3538cd] transition-colors"
             />
             <p className="text-[11px] text-gray-500 mt-1">
-              Leave blank to use the official VAULTIQ Vault contract on BNB Chain Testnet.
+              Leave blank to use the official AevumAgentVault contract on Aevum Testnet.
             </p>
           </div>
 
           <div className="p-3 rounded-xl bg-[#141828] border border-[#232a42] flex items-center justify-between text-xs">
             <span className="text-gray-400">Target Blockchain</span>
-            <span className="font-semibold text-emerald-400">BNB Smart Chain Testnet (97)</span>
+            <span className="font-semibold text-emerald-400">Aevum Testnet (Chain ID 44005, 0xaba5)</span>
           </div>
 
           <div className="pt-3 border-t border-[#1e2335] flex items-center justify-end gap-3">

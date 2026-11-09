@@ -103,7 +103,8 @@ export function SpendingChart({ analytics }: SpendingChartProps) {
             <span>Total Inflow</span>
           </div>
           <p className="text-base font-bold text-emerald-400 mt-1">
-            +${inflowNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+            +{inflowNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}{" "}
+            <span className="text-xs font-normal text-emerald-400/80">tUSD8</span>
           </p>
         </div>
 
@@ -113,7 +114,8 @@ export function SpendingChart({ analytics }: SpendingChartProps) {
             <span>Total Outflow</span>
           </div>
           <p className="text-base font-bold text-rose-400 mt-1">
-            -${outflowNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+            -{outflowNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}{" "}
+            <span className="text-xs font-normal text-rose-400/80">tUSD8</span>
           </p>
         </div>
 
@@ -124,7 +126,8 @@ export function SpendingChart({ analytics }: SpendingChartProps) {
               netNum >= 0 ? "text-emerald-400" : "text-rose-400"
             }`}
           >
-            {netNum >= 0 ? "+" : ""}${netNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+            {netNum >= 0 ? "+" : ""}{netNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}{" "}
+            <span className="text-xs font-normal opacity-80">tUSD8</span>
           </p>
         </div>
       </div>
@@ -161,11 +164,11 @@ export function SpendingChart({ analytics }: SpendingChartProps) {
                   color: "#fff",
                 }}
                 formatter={(val: unknown) => [
-                  `$${Number(val || 0).toLocaleString(undefined, {
+                  `${Number(val || 0).toLocaleString(undefined, {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 4,
-                  })}`,
-                  "Amount",
+                  })} tUSD8`,
+                  "Volume",
                 ]}
               />
               <Bar dataKey="amount" radius={[4, 4, 0, 0]}>

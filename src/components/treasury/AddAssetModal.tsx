@@ -58,12 +58,12 @@ export function AddAssetModal({
       >
         <div className="flex items-center justify-between border-b border-[#1e2335] pb-4">
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-lg bg-yellow-500/10 text-yellow-500">
+            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
               <Coins size={18} />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-white">Track BEP-20 Token</h3>
-              <p className="text-xs text-gray-400">Add a token to track in this treasury</p>
+              <h3 className="text-base font-semibold text-white">Track Aevum Token</h3>
+              <p className="text-xs text-gray-400">Add an ERC-20 token on Aevum Testnet</p>
             </div>
           </div>
           <button
@@ -82,15 +82,24 @@ export function AddAssetModal({
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <label className="block text-xs font-medium text-gray-300 mb-1.5">
-              BEP-20 Token Contract Address <span className="text-rose-400">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-medium text-gray-300">
+                Aevum Token Contract Address <span className="text-rose-400">*</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setTokenAddress("0x456569838f1d43009A91ebA4263147Afd7233483")}
+                className="text-[10px] text-emerald-400 hover:underline cursor-pointer"
+              >
+                Use tUSD8 Address
+              </button>
+            </div>
             <input
               type="text"
               required
               value={tokenAddress}
               onChange={(e) => setTokenAddress(e.target.value)}
-              placeholder="e.g. 0x337610d27c682E347C9cD60BE4B3b107C9d34dDd (USDT)"
+              placeholder="e.g. 0x456569838f1d43009A91ebA4263147Afd7233483 (tUSD8)"
               className="w-full rounded-xl bg-[#141828] border border-[#232a42] px-3.5 py-2.5 text-sm text-white font-mono placeholder-gray-500 focus:outline-none focus:border-[#3538cd] transition-colors"
             />
           </div>

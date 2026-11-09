@@ -12,6 +12,7 @@ import {
   RefreshCw,
   ShieldCheck,
   SlidersHorizontal,
+  Sparkles,
   Wallet,
 } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
@@ -30,6 +31,7 @@ export default function RulesPage() {
     isLoading,
     isEvaluating,
     createRule,
+    updateRule,
     deleteRule,
     toggleRule,
     evaluateRules,
@@ -37,6 +39,96 @@ export default function RulesPage() {
   } = useRules(selectedTreasury?.id);
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetSuccessMsg, setResetSuccessMsg] = useState<string | null>(null);
+
+  // Detect rules that have legacy high thresholds (> 50.0) or legacy BNB token
+  const legacyRules = rules.filter((r) => {
+    const thresh = parseFloat(r.condition?.threshold || "0");
+    const token = (r.condition?.token || "").toUpperCase();
+    return thresh >= 50 || token === "BNB";
+  });
+
+  const handleResetToTestnetDefaults = async () => {
+    if (!selectedTreasury) return;
+    setIsResetting(true);
+    setResetSuccessMsg(null);
+
+    try {
+      // 1. If legacy rules exist, scale them down to testnet claim amounts
+      if (legacyRules.length > 0) {
+        for (const rule of legacyRules) {
+          if (rule.type === "LARGE_TRANSACTION") {
+            await updateRule(rule.id, {
+              name: "Large Transfer Guardrail",
+              description: "Require multisig approval for transfers exceeding 0.25 tUSD8",
+              condition: { threshold: "0.25", token: "tUSD8" },
+            });
+          } else if (rule.type === "LOW_BALANCE") {
+            await updateRule(rule.id, {
+              name: "Low Vault Balance Warning",
+              description: "Trigger security alert when vault drops below 0.50 tUSD8",
+              condition: { threshold: "0.50", token: "tUSD8" },
+            });
+          } else if (rule.type === "EXCESS_BALANCE") {
+            await updateRule(rule.id, {
+              name: "Excess Reserve Rebalance",
+              description: "Suggest moving funds when reserves exceed 0.80 tUSD8",
+              condition: { threshold: "0.80", token: "tUSD8" },
+            });
+          } else {
+            await updateRule(rule.id, {
+              condition: { threshold: "0.25", token: "tUSD8" },
+            });
+          }
+        }
+        setResetSuccessMsg("Updated existing policies to testnet faucet amounts (0.25 tUSD8, 0.50 tUSD8, 0.80 tUSD8).");
+      } else if (rules.length === 0) {
+        // 2. If no rules exist, create the standard 3 testnet guardrails
+        await createRule({
+          name: "Large Transfer Guardrail",
+          description: "Require multisig approval for transfers exceeding 0.25 tUSD8",
+          type: "LARGE_TRANSACTION",
+          condition: { threshold: "0.25", token: "tUSD8" },
+          action: { notify: true, createApproval: true },
+          executionMode: "REQUIRE_APPROVAL",
+          isActive: true,
+        });
+        await createRule({
+          name: "Low Vault Balance Warning",
+          description: "Trigger security alert when vault drops below 0.50 tUSD8",
+          type: "LOW_BALANCE",
+          condition: { threshold: "0.50", token: "tUSD8" },
+          action: { notify: true, createApproval: false },
+          executionMode: "RECOMMEND",
+          isActive: true,
+        });
+        await createRule({
+          name: "Excess Reserve Rebalance",
+          description: "Suggest moving funds when reserves exceed 0.80 tUSD8",
+          type: "EXCESS_BALANCE",
+          condition: { threshold: "0.80", token: "tUSD8" },
+          action: { notify: true, createApproval: false },
+          executionMode: "RECOMMEND",
+          isActive: true,
+        });
+        setResetSuccessMsg("Created testnet guardrails matching your 1.00 tUSD8 faucet claim budget.");
+      } else {
+        // If rules exist with reasonable amounts, refresh evaluation
+        setResetSuccessMsg("All policies are already calibrated to Aevum testnet faucet amounts.");
+      }
+
+      // Re-evaluate immediately
+      setTimeout(() => {
+        void evaluateRules();
+      }, 500);
+    } catch (err: unknown) {
+      console.error("Failed to reset rules to testnet defaults:", err);
+    } finally {
+      setIsResetting(false);
+      setTimeout(() => setResetSuccessMsg(null), 6000);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -54,13 +146,13 @@ export default function RulesPage() {
               </span>
             </h2>
             <p className="text-sm text-gray-400">
-              Define spend limits, low balance alerts, and automated multi-sig triggers.
+              Spend ceilings, low balance alerts, and automated multi-sig triggers calibrated for Aevum testnet.
             </p>
           </div>
         </div>
 
         {isAuthenticated && treasuries.length > 0 && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <select
               value={selectedTreasury?.id || ""}
               onChange={(e) => {
@@ -75,6 +167,16 @@ export default function RulesPage() {
                 </option>
               ))}
             </select>
+
+            <button
+              onClick={handleResetToTestnetDefaults}
+              disabled={isResetting}
+              title="Reset rule thresholds to match daily 1.00 tUSD8 claim"
+              className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors disabled:opacity-50"
+            >
+              <Sparkles size={14} className={isResetting ? "animate-spin" : ""} />
+              <span>{isResetting ? "Resetting..." : "Reset Claim Presets"}</span>
+            </button>
 
             <button
               onClick={() => evaluateRules()}
@@ -96,10 +198,40 @@ export default function RulesPage() {
         )}
       </div>
 
+      {resetSuccessMsg && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 animate-in fade-in">
+          <CheckCircle2 size={14} className="shrink-0" />
+          <span>{resetSuccessMsg}</span>
+        </div>
+      )}
+
       {error && (
         <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-400">
           <AlertCircle size={14} className="shrink-0" />
           <span>{error}</span>
+        </div>
+      )}
+
+      {/* Legacy Threshold Warning Banner */}
+      {legacyRules.length > 0 && (
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-200">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle size={18} className="text-amber-400 shrink-0" />
+            <div>
+              <span className="font-bold text-white">Legacy Mainnet Thresholds Detected:</span> {legacyRules.length} policy guardrail(s) have thresholds exceeding 50.0 tUSD8/BNB from prior templates.
+              <div className="text-[11px] text-amber-300/80 mt-0.5">
+                Reset them now to calibrate against your daily <strong>1.00 tUSD8</strong> and <strong>5.00 tQDAY</strong> faucet claim for realistic testing.
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={handleResetToTestnetDefaults}
+            disabled={isResetting}
+            className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-black font-semibold text-xs transition-colors shrink-0 flex items-center gap-1.5 self-start sm:self-auto"
+          >
+            {isResetting ? <RefreshCw size={13} className="animate-spin" /> : <Sparkles size={13} />}
+            <span>Reset All to 0.25 tUSD8</span>
+          </button>
         </div>
       )}
 
@@ -152,7 +284,7 @@ export default function RulesPage() {
               <div className="text-3xl font-bold text-white mb-1">
                 {activeRules.length} <span className="text-sm font-normal text-gray-500">/ {rules.length} total</span>
               </div>
-              <p className="text-xs text-emerald-400">Monitoring transactions 24/7</p>
+              <p className="text-xs text-emerald-400">Monitoring Aevum Testnet state 24/7</p>
             </div>
 
             <div className="rounded-xl bg-[#131620] p-5 border border-[#1e2335]">
@@ -172,11 +304,11 @@ export default function RulesPage() {
 
             <div className="rounded-xl bg-[#131620] p-5 border border-[#1e2335]">
               <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
-                <span>Security Enforcement</span>
+                <span>Enforcement &amp; Faucet Claim</span>
                 <Lock size={14} className="text-yellow-400" />
               </div>
-              <div className="text-3xl font-bold text-white mb-1">Multisig</div>
-              <p className="text-xs text-gray-400">Smart contract non-custodial bounds</p>
+              <div className="text-2xl font-bold text-white mb-1">1.00 tUSD8 / 5 tQDAY</div>
+              <p className="text-xs text-gray-400">Thresholds calibrated for daily faucet test budget</p>
             </div>
           </div>
 
@@ -230,6 +362,8 @@ export default function RulesPage() {
             onToggle={toggleRule}
             onDelete={deleteRule}
             onCreateClick={() => setCreateModalOpen(true)}
+            onInitDefaults={handleResetToTestnetDefaults}
+            isResetting={isResetting}
           />
         </div>
       )}

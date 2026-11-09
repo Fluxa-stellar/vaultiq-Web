@@ -7,8 +7,11 @@ import {
   CheckCircle2,
   CheckSquare,
   Clock,
+  ExternalLink,
   Plus,
+  Send,
   ShieldCheck,
+  Sparkles,
   Wallet,
 } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
@@ -16,11 +19,13 @@ import { useTreasury } from "@/hooks/useTreasury";
 import { useTransactions } from "@/hooks/useTransactions";
 import { ApprovalCard } from "@/components/approvals/ApprovalCard";
 import { ApprovalModal } from "@/components/approvals/ApprovalModal";
+import { ProposeTransferModal } from "@/components/approvals/ProposeTransferModal";
+import { AEVUM_EXPLORER, DEFAULT_VAULT_ADDRESS } from "@/config/constants";
 import type { Approval } from "@/types/transaction";
 
 export default function ApprovalsPage() {
-  const { isAuthenticated, login, isConnecting } = useWallet();
-  const { treasuries, selectedTreasury, selectTreasury } = useTreasury();
+  const { isAuthenticated, login, isConnecting, address, balance, stableBalance } = useWallet();
+  const { treasuries, selectedTreasury, selectTreasury, overview } = useTreasury();
   const {
     pendingApprovals,
     approvedApprovals,
@@ -29,10 +34,32 @@ export default function ApprovalsPage() {
     approveRequest,
     rejectRequest,
     executeRequest,
+    proposeTransaction,
+    reload,
     error,
   } = useTransactions(selectedTreasury?.id);
 
   const [executingApproval, setExecutingApproval] = useState<Approval | null>(null);
+  const [proposeModalOpen, setProposeModalOpen] = useState(false);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  const handleSeedSampleProposal = async () => {
+    if (!selectedTreasury) return;
+    try {
+      await proposeTransaction({
+        toAddress: "0x2b8004f1a268fb4f15d74268e37602e1c981881f", // DeepSeek Inference Gateway
+        amount: "0.20",
+        tokenSymbol: "tUSD8",
+        tokenAddress: "0x456569838f1d43009A91ebA4263147Afd7233483",
+        type: "TRANSFER",
+        reason: "Autonomous Compute Refill & API Quota Top-Up",
+      });
+      setSuccessToast("Created sample transfer proposal (0.20 tUSD8) calibrated for faucet claim.");
+      setTimeout(() => setSuccessToast(null), 5000);
+    } catch (err) {
+      console.error("Failed to seed sample proposal:", err);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -50,13 +77,13 @@ export default function ApprovalsPage() {
               </span>
             </h2>
             <p className="text-sm text-gray-400">
-              Review, approve, and execute proposed treasury transfers and AI actions.
+              Review, approve, and execute real on-chain transfers and autonomous agent guardrails on Aevum Testnet.
             </p>
           </div>
         </div>
 
         {isAuthenticated && treasuries.length > 0 && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <select
               value={selectedTreasury?.id || ""}
               onChange={(e) => {
@@ -71,9 +98,48 @@ export default function ApprovalsPage() {
                 </option>
               ))}
             </select>
+
+            <button
+              onClick={() => setProposeModalOpen(true)}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold text-white bg-[#3538cd] hover:bg-[#3538cd]/90 transition-all shadow-md shadow-[#3538cd]/20"
+            >
+              <Plus size={14} />
+              <span>Propose Real Transfer</span>
+            </button>
           </div>
         )}
       </div>
+
+      {/* Connected Wallet Live Data Badge */}
+      {address && (
+        <div className="p-3.5 rounded-xl bg-[#141828] border border-[#22293e] flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="text-gray-400">Connected Wallet:</span>
+            <a
+              href={`${AEVUM_EXPLORER}/address/${address}`}
+              target="_blank"
+              rel="noreferrer"
+              className="font-mono font-medium text-white hover:text-indigo-400 transition-colors inline-flex items-center gap-1"
+            >
+              <span>{address.slice(0, 10)}...{address.slice(-8)}</span>
+              <ExternalLink size={12} className="text-gray-400" />
+            </a>
+          </div>
+          <div className="flex items-center gap-4 text-[11px] text-gray-300 flex-wrap">
+            <span>Wallet tUSD8: <strong className="text-emerald-400 font-mono">{stableBalance || "0.00"} tUSD8</strong></span>
+            <span>Vault tUSD8: <strong className="text-indigo-400 font-mono">{overview?.vaultBalance || "1.00"} tUSD8</strong></span>
+            <span>Gas: <strong className="text-amber-400 font-mono">{balance || "0.00"} tQDAY</strong></span>
+          </div>
+        </div>
+      )}
+
+      {successToast && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 animate-in fade-in">
+          <CheckCircle2 size={14} className="shrink-0" />
+          <span>{successToast}</span>
+        </div>
+      )}
 
       {error && (
         <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-400">
@@ -90,7 +156,7 @@ export default function ApprovalsPage() {
           </div>
           <h3 className="text-lg font-bold text-white mb-2">Connect Your Web3 Wallet</h3>
           <p className="text-xs text-gray-400 max-w-md mb-6">
-            Authenticate to review and approve pending multi-sig requests for your smart vault.
+            Authenticate to review, propose, and execute real on-chain multi-sig requests for your smart vault.
           </p>
           <button
             onClick={login}
@@ -131,7 +197,7 @@ export default function ApprovalsPage() {
               <div className="text-3xl font-bold text-amber-400 mb-1">
                 {pendingApprovals.length}
               </div>
-              <p className="text-xs text-gray-500">Requires owner signature</p>
+              <p className="text-xs text-gray-500">Requires owner review &amp; signature</p>
             </div>
 
             <div className="rounded-xl bg-[#131620] p-5 border border-[#1e2335]">
@@ -142,7 +208,7 @@ export default function ApprovalsPage() {
               <div className="text-3xl font-bold text-emerald-400 mb-1">
                 {approvedApprovals.length}
               </div>
-              <p className="text-xs text-gray-500">Ready for on-chain execution</p>
+              <p className="text-xs text-gray-500">Ready for real on-chain execution</p>
             </div>
 
             <div className="rounded-xl bg-[#131620] p-5 border border-[#1e2335]">
@@ -153,7 +219,7 @@ export default function ApprovalsPage() {
               <div className="text-3xl font-bold text-white mb-1">
                 {completedApprovals.length}
               </div>
-              <p className="text-xs text-gray-500">Historical actions</p>
+              <p className="text-xs text-gray-500">Confirmed on Aevum Testnet</p>
             </div>
           </div>
 
@@ -169,9 +235,30 @@ export default function ApprovalsPage() {
             </div>
 
             {pendingApprovals.length === 0 ? (
-              <div className="rounded-xl bg-[#121625] border border-[#1e2335] p-8 text-center text-xs text-gray-400">
-                <CheckCircle2 size={24} className="mx-auto mb-2 text-emerald-400" />
-                <span>All clear! No pending approval requests requiring action.</span>
+              <div className="rounded-2xl bg-[#111423] border border-[#1e2335] p-8 text-center flex flex-col items-center justify-center gap-3">
+                <CheckCircle2 size={28} className="text-emerald-400" />
+                <div>
+                  <h4 className="text-sm font-semibold text-white">No Pending Approvals</h4>
+                  <p className="text-xs text-gray-400 mt-1 max-w-md">
+                    All governance items are up to date. You can propose a new real transfer calibrated for your 1.00 tUSD8 claim budget.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2.5 mt-2 flex-wrap justify-center">
+                  <button
+                    onClick={() => setProposeModalOpen(true)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-[#3538cd] hover:bg-[#3538cd]/90 transition-all shadow-md shadow-[#3538cd]/20"
+                  >
+                    <Plus size={14} />
+                    <span>Propose Real Transfer</span>
+                  </button>
+                  <button
+                    onClick={handleSeedSampleProposal}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all"
+                  >
+                    <Sparkles size={14} />
+                    <span>Create Test Proposal (0.20 tUSD8)</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -194,7 +281,7 @@ export default function ApprovalsPage() {
             <div className="flex flex-col gap-3 pt-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <span>Approved &amp; Ready for Execution ({approvedApprovals.length})</span>
+                  <span>Approved &amp; Ready for On-Chain Execution ({approvedApprovals.length})</span>
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 </h3>
               </div>
@@ -238,12 +325,26 @@ export default function ApprovalsPage() {
         </div>
       )}
 
-      {/* Execution Modal */}
+      {/* Execution Modal with Real On-Chain Transfer */}
       <ApprovalModal
         approval={executingApproval}
         isOpen={!!executingApproval}
-        onClose={() => setExecutingApproval(null)}
+        onClose={() => {
+          setExecutingApproval(null);
+          void reload();
+        }}
         onExecute={executeRequest}
+      />
+
+      {/* Propose Real Transfer Modal */}
+      <ProposeTransferModal
+        isOpen={proposeModalOpen}
+        onClose={() => setProposeModalOpen(false)}
+        onPropose={proposeTransaction}
+        onRealTransferExecuted={(txHash) => {
+          setSuccessToast(`Real transfer executed and mined on-chain! Tx: ${txHash.slice(0, 10)}...`);
+          void reload();
+        }}
       />
     </div>
   );
