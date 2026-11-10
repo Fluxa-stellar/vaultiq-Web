@@ -39,7 +39,6 @@ import { useAgent } from "@/hooks/useAgent";
 import { useAgentAllowances } from "@/hooks/useAgentAllowances";
 import { useTransactions } from "@/hooks/useTransactions";
 import { FuelGauge } from "@/components/allowances/FuelGauge";
-import { InteractiveAgentSandbox } from "@/components/dashboard/InteractiveAgentSandbox";
 import { formatTimeAgo, formatAddress } from "@/lib/formatters";
 import { AEVUM_EXPLORER } from "@/config/constants";
 
@@ -445,9 +444,6 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-
-          {/* Interactive Agent Sandbox Widget (For Hackathon Demo Video) */}
-          <InteractiveAgentSandbox />
 
           {/* Row 2: Allocation & Recent Activity */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
